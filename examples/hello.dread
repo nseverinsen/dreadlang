@@ -1,0 +1,15 @@
+// This is a comment!
+
+/*
+ * This is a docstring for the entrypoint (Entry), which is the start of the executable program.
+ * It has no arguments, for now. It returns integer by default
+ */
+Entry main() (Int)
+{
+    /* This is also a comment! Underneath is a duck typed declaration and initialization of a variable of string type*/
+    hello_string = 'Hello, World!\n'
+
+    Print(hello_string) // This is a built in function in dread for printing to stdout
+    // All keywords in dread start with an uppercase first letter! Like Entry, Print, and also:
+    Return(0) // Return! Which returns zero, like most programs do
+}

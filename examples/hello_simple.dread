@@ -1,0 +1,7 @@
+Entry main() (Int)
+{
+    hello_string = 'Hello, World!
+'
+    Print(hello_string)
+    Return(0)
+}

@@ -1,0 +1,65 @@
+# Compiler
+dreadc
+
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# Dependency directories (remove the comment below to include it)
+# vendor/
+
+# Go workspace file
+go.work
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Dread compiler output
+*.o
+*.s
+*.asm
+a.out
+
+# Compiled Dread programs
+hello
+hello_simple
+test
+test_manual
+
+# Debug and temporary files
+debug_*
+temp_*
+*.tmp
+
+# Build artifacts
+/build/
+/dist/
+
+# Log files
+*.log
+
+# Test files (but keep examples/)
+test_*.dread
+temp_*.dread
