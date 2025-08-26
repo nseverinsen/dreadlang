@@ -42,6 +42,25 @@ Entry main() (Int)
 }
 ```
 
+### entry_demo.dread
+**Description**: Demonstrates Entry function constraints and current language features
+**Features**: Entry function rules, comments explaining future Function support
+**Compilation**: `./dreadc examples/entry_demo.dread entry_demo`
+
+```dread
+// Example demonstrating current Entry function constraints
+Entry main() (Int)
+{
+    program_name = 'Dread Language Demo
+'
+    Print(program_name)
+    Return(0)
+}
+
+// Future: Regular functions will be declared with 'Function' keyword
+// Function helper() (Int) { ... }
+```
+
 ## Running Examples
 
 1. **Build the compiler** (if not already built):

@@ -52,15 +52,16 @@ _private
 
 All keywords in Dread start with an uppercase letter:
 
-| Keyword  | Purpose                    |
-|----------|----------------------------|
-| `Entry`  | Function declaration       |
-| `Print`  | Built-in print function    |
-| `Return` | Return statement           |
-| `Int`    | Integer type annotation    |
+| Keyword    | Purpose                         |
+|------------|---------------------------------|
+| `Entry`    | Entry point function declaration|
+| `Function` | Regular function declaration    |
+| `Print`    | Built-in print function         |
+| `Return`   | Return statement                |
+| `Int`      | Integer type annotation         |
 
 **Reserved for future use**:
-`If`, `Else`, `While`, `For`, `True`, `False`, `String`, `Bool`, `Float`
+`If`, `Else`, `While`, `For`, `True`, `False`, `String`, `Bool`, `Float`, `Function`
 
 ### Literals
 
@@ -115,7 +116,10 @@ Integer literals are sequences of digits:
 
 ### Program Structure
 
-A Dread program consists of one or more function definitions. The program entry point is an `Entry` function named `main`.
+A Dread program consists of function definitions with specific structural requirements.
+
+#### Program Entry Point
+Every Dread program **must** have exactly one `Entry` function named `main`:
 
 ```dread
 Entry main() (Int)
@@ -125,11 +129,31 @@ Entry main() (Int)
 }
 ```
 
+#### Program Structure Rules
+1. **Exactly one Entry function**: Each executable must contain one `Entry main()` function
+2. **Entry function naming**: The Entry function must be named `main`
+3. **Entry function signature**: Must be `Entry main() (Int)`
+4. **Multiple regular functions**: Programs may contain multiple `Function` declarations (future feature)
+5. **Entry cannot be called**: Entry functions are entry points, not callable functions
+
+#### Invalid Programs
+```dread
+// ❌ ERROR: No Entry function
+Function helper() (Int) { Return(0) }
+
+// ❌ ERROR: Multiple Entry functions
+Entry main() (Int) { Return(0) }
+Entry start() (Int) { Return(1) }
+
+// ❌ ERROR: Entry function not named 'main'
+Entry start() (Int) { Return(0) }
+```
+
 ### Functions
 
-#### Function Declaration
+#### Entry Point Function Declaration
 
-**Syntax**:
+**Syntax** (Currently supported):
 ```
 Entry <function_name>() (<return_type>)
 {
@@ -137,11 +161,27 @@ Entry <function_name>() (<return_type>)
 }
 ```
 
+#### Regular Function Declaration
+
+**Syntax** (Future feature):
+```
+Function <function_name>() (<return_type>)
+{
+    <statements>
+}
+```
+
 **Current limitations**:
-- Only `Entry` functions supported
+- Only `Entry` functions supported (regular `Function` declarations planned)
 - No function parameters
 - Only `Int` return type
 - Only one function per program
+
+**Entry Function Constraints**:
+- **Exactly one Entry per executable**: Each program must have one and only one `Entry` function
+- **Entry function must be named `main`**: The entry point must be `Entry main()`
+- **Entry functions cannot be called**: Entry functions are program entry points, not callable functions
+- **Entry functions must return Int**: Exit code for the operating system
 
 **Example**:
 ```dread
@@ -400,9 +440,12 @@ See `TODO.md` for detailed roadmap:
 ## Grammar (BNF)
 
 ```bnf
-<program>     ::= <function>+
+<program>     ::= <entry_function>+
 
-<function>    ::= "Entry" <identifier> "(" ")" "(" <type> ")" <block>
+<entry_function> ::= "Entry" <identifier> "(" ")" "(" <type> ")" <block>
+
+// Future: Regular functions will use "Function" keyword
+// <function>    ::= "Function" <identifier> "(" ")" "(" <type> ")" <block>
 
 <block>       ::= "{" <statement>* "}"
 

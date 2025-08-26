@@ -48,7 +48,8 @@ Compile and run:
 
 ### Keywords
 All keywords in Dread start with an uppercase letter:
-- `Entry` - Function declaration keyword
+- `Entry` - Entry point function declaration (special function)
+- `Function` - Regular function declaration keyword
 - `Print` - Built-in print function
 - `Return` - Return statement
 - `Int` - Integer type annotation
@@ -64,12 +65,24 @@ All keywords in Dread start with an uppercase letter:
 ```
 
 ### Functions
+
+**Entry Point Function (Program Entry)**:
 ```dread
-Entry functionName() (ReturnType)
+Entry main() (ReturnType)
 {
-    // Function body
+    // Entry point function body - where program execution begins
 }
 ```
+
+**Regular Functions (Future Feature)**:
+```dread
+Function functionName() (ReturnType)
+{
+    // Regular function body
+}
+```
+
+*Note: Currently only Entry functions are implemented. Regular Function support is planned.*
 
 ### Variables
 Variables use duck typing - no explicit type declaration needed:
@@ -122,8 +135,12 @@ The compiler driver coordinates the entire process:
 dreadlang/
 ├── README.md                 # This file
 ├── TODO.md                   # Development roadmap
-├── go.mod                    # Go module definition
-├── .gitignore               # Git ignore rules
+├── MILESTONES.md            # Development milestones and progress tracking
+├── SPECIFICATION.md         # Language specification
+├── ARCHITECTURE.md          # Technical architecture documentation
+├── DEVELOPER.md             # Developer guide
+├── go.mod                   # Go module definition
+├── .gitignore              # Git ignore rules
 ├── cmd/
 │   └── dreadc/
 │       └── main.go          # Compiler main entry point
@@ -170,13 +187,17 @@ dreadlang/
 - **Built-in I/O**: Print function for stdout
 - **Program Control**: Return statements with exit codes
 
-### 🚧 Limitations (See TODO.md for roadmap)
-- No arithmetic expressions yet
-- No control flow (if/else, loops)
-- Limited type system
-- No function parameters
-- No error handling
-- Single-file compilation only
+### 🚧 Current Limitations
+- **Single Entry Point**: Exactly one `Entry main()` function per program
+- **No regular functions**: Only Entry functions supported (see [MILESTONES.md](MILESTONES.md))
+- **No arithmetic expressions**: Mathematical operations not yet implemented
+- **No control flow**: No if/else statements or loops yet
+- **Limited type system**: Only strings and integers
+- **No function parameters**: Functions take no arguments
+- **No error handling**: Basic error reporting only
+- **Single-file compilation**: No module system yet
+
+**Next Milestone**: Function support - see [MILESTONES.md](MILESTONES.md) for development roadmap.
 
 ## 🔍 Technical Details
 
