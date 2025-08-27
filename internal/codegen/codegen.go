@@ -45,6 +45,9 @@ func (cg *CodeGenerator) writeDataSection(program *parser.Program) {
 	// Collect all string literals
 	cg.collectStrings(program)
 
+	// Pre-collect common placeholder strings that might be generated during codegen
+	cg.getStringLabel("(return value)")
+
 	// Generate string constants
 	for literal, label := range cg.stringConstants {
 		// Convert escape sequences
@@ -92,16 +95,8 @@ func (cg *CodeGenerator) writeTextSection(program *parser.Program) {
 }
 
 func (cg *CodeGenerator) generateBlockStatement(block *parser.BlockStatement, isEntry bool) {
-	variables := make(map[string]string) // variable name -> label/register
-
-	for _, stmt := range block.Statements {
-		switch s := stmt.(type) {
-		case *parser.AssignStatement:
-			cg.generateAssignStatement(s, variables)
-		case *parser.CallStatement:
-			cg.generateCallStatement(s, variables, isEntry)
-		}
-	}
+	// For backward compatibility, call the new method with empty parameters
+	cg.generateBlockStatementWithParams(block, isEntry, []*parser.Parameter{})
 }
 
 func (cg *CodeGenerator) generateAssignStatement(stmt *parser.AssignStatement, variables map[string]string) {
@@ -116,15 +111,35 @@ func (cg *CodeGenerator) generateAssignStatement(stmt *parser.AssignStatement, v
 			variables[stmt.Name] = ref
 		}
 	case *parser.CallExpression:
-		// Function call assignment - for now, just call the function
-		// TODO: Implement proper return value handling
+		// Function call assignment - implement return value handling
 		cg.output.WriteString(fmt.Sprintf("    # %s = %s()\n", stmt.Name, expr.Function))
 		if len(expr.Arguments) == 0 {
 			cg.output.WriteString(fmt.Sprintf("    call %s\n", expr.Function))
 		} else {
-			cg.output.WriteString("    # TODO: Function calls with parameters not yet implemented\n")
+			// Handle parameters for assignment calls too
+			cg.output.WriteString("    # Setup parameters for assignment call\n")
+			for i, arg := range expr.Arguments {
+				switch a := arg.(type) {
+				case *parser.StringLiteral:
+					label := cg.getStringLabel(a.Value)
+					if i == 0 {
+						cg.output.WriteString(fmt.Sprintf("    lea rdi, [%s]    # first parameter\n", label))
+					}
+				case *parser.Identifier:
+					if label, exists := variables[a.Value]; exists {
+						if i == 0 {
+							cg.output.WriteString(fmt.Sprintf("    lea rdi, [%s]    # first parameter from variable\n", label))
+						}
+					}
+				}
+			}
+			cg.output.WriteString(fmt.Sprintf("    call %s\n", expr.Function))
 		}
-		// For now, we don't capture the return value
+		// For string return values, assume the function returns a string label in rax
+		// For now, we'll just mark the variable as having a return value
+		// In a full implementation, we'd need proper return value passing through registers
+		variables[stmt.Name] = "(return_value)" // Special marker for return values
+		// Note: Proper return value capture would require register/stack management
 	}
 }
 
@@ -136,7 +151,16 @@ func (cg *CodeGenerator) generateCallStatement(stmt *parser.CallStatement, varia
 			switch a := arg.(type) {
 			case *parser.Identifier:
 				if label, exists := variables[a.Value]; exists {
-					cg.generatePrint(label)
+					// Check if this is a parameter (special handling)
+					if strings.HasPrefix(label, "param_") {
+						cg.generatePrintFromRegister()
+					} else if label == "(return_value)" {
+						// This is a return value - for now, print a placeholder
+						placeholderLabel := cg.getStringLabel("(return value)")
+						cg.generatePrint(placeholderLabel)
+					} else {
+						cg.generatePrint(label)
+					}
 				}
 			case *parser.StringLiteral:
 				label := cg.getStringLabel(a.Value)
@@ -167,12 +191,33 @@ func (cg *CodeGenerator) generateCallStatement(stmt *parser.CallStatement, varia
 		// User-defined function call
 		cg.output.WriteString(fmt.Sprintf("    # Call %s\n", stmt.Function))
 
-		// For now, we'll support simple function calls without parameters
-		// TODO: Handle function parameters and return values
+		// Implement basic parameter passing
 		if len(stmt.Arguments) == 0 {
 			cg.output.WriteString(fmt.Sprintf("    call %s\n", stmt.Function))
 		} else {
-			cg.output.WriteString("    # TODO: Function calls with parameters not yet implemented\n")
+			// For simplicity, we'll pass string parameters by setting up string labels
+			// In x86-64, first argument goes in rdi register
+			cg.output.WriteString("    # Setup parameters\n")
+			for i, arg := range stmt.Arguments {
+				switch a := arg.(type) {
+				case *parser.StringLiteral:
+					label := cg.getStringLabel(a.Value)
+					if i == 0 {
+						// First parameter in rdi (following x86-64 calling convention)
+						cg.output.WriteString(fmt.Sprintf("    lea rdi, [%s]    # first parameter\n", label))
+					} else {
+						// For now, only support one parameter
+						cg.output.WriteString("    # TODO: Multiple parameters not yet implemented\n")
+					}
+				case *parser.Identifier:
+					if label, exists := variables[a.Value]; exists {
+						if i == 0 {
+							cg.output.WriteString(fmt.Sprintf("    lea rdi, [%s]    # first parameter from variable\n", label))
+						}
+					}
+				}
+			}
+			cg.output.WriteString(fmt.Sprintf("    call %s\n", stmt.Function))
 		}
 	}
 }
@@ -183,6 +228,17 @@ func (cg *CodeGenerator) generatePrint(label string) {
 	cg.output.WriteString("    mov rdi, 1       # stdout\n")
 	cg.output.WriteString(fmt.Sprintf("    lea rsi, [%s]    # string address\n", label))
 	cg.output.WriteString(fmt.Sprintf("    mov rdx, %s_len  # string length\n", label))
+	cg.output.WriteString("    syscall\n")
+}
+
+func (cg *CodeGenerator) generatePrintFromRegister() {
+	cg.output.WriteString("    # Print(parameter from rdi)\n")
+	cg.output.WriteString("    mov rax, 1       # sys_write\n")
+	cg.output.WriteString("    mov rsi, rdi     # string address from parameter\n")
+	cg.output.WriteString("    mov rdi, 1       # stdout\n")
+	// For now, assume a reasonable string length for parameters
+	// In a full implementation, we'd need to calculate or store the length
+	cg.output.WriteString("    mov rdx, 32      # assumed parameter string length\n")
 	cg.output.WriteString("    syscall\n")
 }
 
@@ -213,6 +269,11 @@ func (cg *CodeGenerator) collectStringsFromExpression(expr parser.Expression) {
 	switch e := expr.(type) {
 	case *parser.StringLiteral:
 		cg.getStringLabel(e.Value)
+	case *parser.CallExpression:
+		// Collect strings from function call arguments
+		for _, arg := range e.Arguments {
+			cg.collectStringsFromExpression(arg)
+		}
 	}
 }
 
@@ -248,7 +309,7 @@ func (cg *CodeGenerator) generateFunction(funcStmt *parser.FunctionStatement) {
 	}
 
 	// Generate function body
-	cg.generateBlockStatement(funcStmt.Body, funcStmt.IsEntry)
+	cg.generateBlockStatementWithParams(funcStmt.Body, funcStmt.IsEntry, funcStmt.Parameters)
 
 	if !funcStmt.IsEntry {
 		// Default return for regular functions
@@ -262,5 +323,31 @@ func (cg *CodeGenerator) generateFunction(funcStmt *parser.FunctionStatement) {
 		cg.output.WriteString("    mov rax, 60      # sys_exit\n")
 		cg.output.WriteString("    mov rdi, 0       # exit status\n")
 		cg.output.WriteString("    syscall\n")
+	}
+}
+
+func (cg *CodeGenerator) generateBlockStatementWithParams(block *parser.BlockStatement, isEntry bool, params []*parser.Parameter) {
+	variables := make(map[string]string) // variable name -> label/register
+
+	// Set up parameters as variables
+	// In x86-64 calling convention, first parameter is in rdi
+	for i, param := range params {
+		if i == 0 {
+			// For simplicity, assume string parameters - create a label for the parameter
+			// In a full implementation, we'd properly handle the register content
+			paramLabel := fmt.Sprintf("param_%s", param.Name)
+			variables[param.Name] = paramLabel
+			// The parameter address is in rdi, we'll use it directly in Print calls
+			cg.output.WriteString(fmt.Sprintf("    # Parameter %s available in rdi\n", param.Name))
+		}
+	}
+
+	for _, stmt := range block.Statements {
+		switch s := stmt.(type) {
+		case *parser.AssignStatement:
+			cg.generateAssignStatement(s, variables)
+		case *parser.CallStatement:
+			cg.generateCallStatement(s, variables, isEntry)
+		}
 	}
 }

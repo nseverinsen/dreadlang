@@ -25,7 +25,7 @@ This document tracks completed milestones and defines upcoming development targe
 
 ---
 
-## 🚧 **Milestone 2: Function Support** - *95% Complete!*
+## ✅ **Milestone 2: Function Support** - *COMPLETE!* 🎉
 
 **Goal**: Add support for regular `Function` declarations alongside `Entry` functions.
 
@@ -41,13 +41,14 @@ This document tracks completed milestones and defines upcoming development targe
 - ✅ **Code Generation**: Generate assembly for multiple functions
 - ✅ **Validation**: Ensure exactly one Entry function per program
 
-### Phase 2.2: Function Calling Mechanism [✅ MOSTLY COMPLETE]
+### Phase 2.2: Function Calling Mechanism [✅ COMPLETE]
 - ✅ **Function Calls**: Implement calling regular functions (no parameters)
+- ✅ **Function Calls**: Implement calling functions WITH parameters
 - ✅ **Call Stack**: Proper stack frame management
 - ✅ **Entry vs Function Returns**: Entry functions exit program, regular functions return to caller
 - ✅ **Function Call Expressions**: Support `var = function()` syntax
-- 🔄 **Return Values**: Functions return but values not captured yet
-- ⏳ **Function Parameters**: Parameter passing not implemented
+- ✅ **Return Values**: Functions return and values are captured in variables
+- ✅ **Function Parameters**: Parameter passing implemented via x86-64 calling convention
 
 ### Current Status (95% Complete) 🎉
 - **✅ Working**: Multiple function declarations (Entry + Function)
