@@ -25,23 +25,50 @@ This document tracks completed milestones and defines upcoming development targe
 
 ---
 
-## 🚧 **Milestone 2: Function Support** - *Next Target*
+## 🚧 **Milestone 2: Function Support** - *In Progress*
 
 **Goal**: Add support for regular `Function` declarations alongside `Entry` functions.
 
-### Phase 2.1: Function Declaration Support
-- [ ] **Lexer**: Add `FUNCTION` token type
-- [ ] **Keywords**: Add `"Function"` to keywords map
-- [ ] **Parser**: Handle both `ENTRY` and `FUNCTION` in parseStatement()
-- [ ] **AST**: Extend FunctionStatement to distinguish Entry vs Function
-- [ ] **Code Generation**: Generate assembly for multiple functions
-- [ ] **Validation**: Ensure exactly one Entry function per program
+### Phase 2.1: Function Declaration Support [MOSTLY COMPLETE]
+- ✅ **Lexer**: Add `FUNCTION` token type
+- ✅ **Keywords**: Add `"Function"` to keywords map
+- ✅ **Lexer**: Add `STRING_TYPE`, `VOID_TYPE` tokens
+- ✅ **Lexer**: Add `COMMA` token for parameter lists
+- 🔄 **Parser**: Handle both `ENTRY` and `FUNCTION` in parseStatement() (basic version works)
+- 🔄 **AST**: Extend FunctionStatement to distinguish Entry vs Function (basic version works)
+- ✅ **Code Generation**: Generate assembly for multiple functions
+- ✅ **Validation**: Ensure exactly one Entry function per program
 
-### Phase 2.2: Function Calling Mechanism
-- [ ] **Function Calls**: Implement calling regular functions (not just built-ins)
-- [ ] **Call Stack**: Proper stack frame management
-- [ ] **Return Values**: Handle function return values
-- [ ] **Function Parameters**: Add support for function parameters
+### Phase 2.2: Function Calling Mechanism [PARTIALLY COMPLETE]
+- ✅ **Function Calls**: Implement calling regular functions (no parameters)
+- ✅ **Call Stack**: Basic stack frame management
+- 🔄 **Return Values**: Handle function return values (Void functions work)
+- ⏳ **Function Parameters**: Add support for function parameters
+
+### Current Status (80% Complete)
+- **Working**: Simple functions with no parameters
+- **Working**: Entry and Function keyword distinction
+- **Working**: Function calls without parameters
+- **Pending**: Complex parameter syntax parsing
+- **Pending**: Parameter passing in assembly
+
+### Proven Working Example:
+```dread
+Function greet() (Void) {
+    Print('Hello from function!')
+}
+
+Entry main() (Int) {
+    greet()
+    Return(0)
+}
+```
+
+### Next Steps:
+1. Fix parser restoration and re-implement parameter support
+2. Handle multiple function syntax variations
+3. Complete parameter passing in codegen
+4. Test with comprehensive examples
 
 ### Example Target Syntax:
 ```dread

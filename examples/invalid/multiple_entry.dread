@@ -1,0 +1,10 @@
+// This is an example of a INVALID dread program, this should not compile
+
+Entry main() {
+    Return(0)
+}
+
+// INVALID: A dread program cannot have two Entry functions
+Entry start() {
+    Return(1)
+}

@@ -1,7 +1,6 @@
 Entry main() (Int)
 {
-    hello_string = 'Hello, World!
-'
+    hello_string = 'Hello, World!\n'
     Print(hello_string)
     Return(0)
 }

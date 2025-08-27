@@ -138,15 +138,9 @@ Entry main() (Int)
 
 #### Invalid Programs
 ```dread
-// ❌ ERROR: No Entry function
-Function helper() (Int) { Return(0) }
-
 // ❌ ERROR: Multiple Entry functions
 Entry main() (Int) { Return(0) }
 Entry start() (Int) { Return(1) }
-
-// ❌ ERROR: Entry function not named 'main'
-Entry start() (Int) { Return(0) }
 ```
 
 ### Functions

@@ -13,16 +13,20 @@ const (
 	INT    // 123
 
 	// Keywords
-	ENTRY    // Entry
-	PRINT    // Print
-	RETURN   // Return
-	INT_TYPE // Int
+	ENTRY       // Entry
+	FUNCTION    // Function
+	PRINT       // Print
+	RETURN      // Return
+	INT_TYPE    // Int
+	STRING_TYPE // String
+	VOID_TYPE   // Void
 
 	// Delimiters
 	LPAREN // (
 	RPAREN // )
 	LBRACE // {
 	RBRACE // }
+	COMMA  // ,
 
 	// Operators
 	ASSIGN // =
@@ -32,10 +36,13 @@ const (
 )
 
 var keywords = map[string]TokenType{
-	"Entry":  ENTRY,
-	"Print":  PRINT,
-	"Return": RETURN,
-	"Int":    INT_TYPE,
+	"Entry":    ENTRY,
+	"Function": FUNCTION,
+	"Print":    PRINT,
+	"Return":   RETURN,
+	"Int":      INT_TYPE,
+	"String":   STRING_TYPE,
+	"Void":     VOID_TYPE,
 }
 
 type Token struct {
@@ -104,6 +111,8 @@ func (l *Lexer) NextToken() Token {
 		tok = Token{Type: LBRACE, Literal: string(l.ch), Line: l.line, Column: l.column}
 	case '}':
 		tok = Token{Type: RBRACE, Literal: string(l.ch), Line: l.line, Column: l.column}
+	case ',':
+		tok = Token{Type: COMMA, Literal: string(l.ch), Line: l.line, Column: l.column}
 	case '\'':
 		tok.Type = STRING
 		tok.Literal = l.readString()
@@ -264,12 +273,18 @@ func (t TokenType) String() string {
 		return "INT"
 	case ENTRY:
 		return "ENTRY"
+	case FUNCTION:
+		return "FUNCTION"
 	case PRINT:
 		return "PRINT"
 	case RETURN:
 		return "RETURN"
 	case INT_TYPE:
 		return "INT_TYPE"
+	case STRING_TYPE:
+		return "STRING_TYPE"
+	case VOID_TYPE:
+		return "VOID_TYPE"
 	case LPAREN:
 		return "LPAREN"
 	case RPAREN:
@@ -278,6 +293,8 @@ func (t TokenType) String() string {
 		return "LBRACE"
 	case RBRACE:
 		return "RBRACE"
+	case COMMA:
+		return "COMMA"
 	case ASSIGN:
 		return "ASSIGN"
 	case COMMENT:

@@ -33,9 +33,21 @@ func (p *Program) String() string {
 	return out
 }
 
+// Parameter represents a function parameter
+type Parameter struct {
+	Name string
+	Type string
+}
+
+func (p *Parameter) String() string {
+	return fmt.Sprintf("%s %s", p.Name, p.Type)
+}
+
 // Statements
 type FunctionStatement struct {
+	IsEntry    bool
 	Name       string
+	Parameters []*Parameter
 	ReturnType string
 	Body       *BlockStatement
 }

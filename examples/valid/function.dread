@@ -1,0 +1,40 @@
+
+
+// Function with no arguments that returns nothing
+Function fun_noarg_noret() {
+    Print('No args! No rets!')
+}
+
+// Function with no arguments that returns a String
+Function fun_noarg_ret() String {
+    Return('No args! Rets!')
+}
+
+// Function with one String argument that returns nothing (note the optional Void return type)
+Function fun_arg_noret(String input_str) Void {
+    Print(input_str)
+}
+
+// Function with one String argument that returns a String
+Function fun_arg_ret(String input_str) String {
+    Print(input_str)
+    Return('Args! Rets!')
+}
+
+// Call the functions in an actual program to run it
+Entry main() {
+
+    fun_noarg_noret()
+
+    first_return_value = fun_noarg_ret()
+    Print(first_return_value)
+
+    fun_arg_noret('Args! No rets!')
+
+    second_return_value = fun_arg_ret('Args! Rets! Input!')
+    Print(second_return_value)
+}
+
+
+
+

@@ -58,22 +58,37 @@ func (cg *CodeGenerator) writeDataSection(program *parser.Program) {
 
 func (cg *CodeGenerator) writeTextSection(program *parser.Program) {
 	cg.output.WriteString(".section .text\n")
-	cg.output.WriteString("_start:\n")
 
-	// Generate code for the main function
+	// Find and generate the Entry function first
+	var entryFound bool
 	for _, stmt := range program.Statements {
 		if funcStmt, ok := stmt.(*parser.FunctionStatement); ok {
-			if funcStmt.Name == "main" {
-				cg.generateBlockStatement(funcStmt.Body)
+			if funcStmt.IsEntry {
+				cg.output.WriteString("_start:\n")
+				cg.generateFunction(funcStmt)
+				entryFound = true
+				break
 			}
 		}
 	}
 
-	// Default exit if no explicit return
-	cg.output.WriteString("    # Default exit\n")
-	cg.output.WriteString("    mov rax, 60      # sys_exit\n")
-	cg.output.WriteString("    mov rdi, 0       # exit status\n")
-	cg.output.WriteString("    syscall\n")
+	if !entryFound {
+		// Default entry point if no Entry function found
+		cg.output.WriteString("_start:\n")
+		cg.output.WriteString("    # No Entry function found\n")
+		cg.output.WriteString("    mov rax, 60      # sys_exit\n")
+		cg.output.WriteString("    mov rdi, 1       # exit status\n")
+		cg.output.WriteString("    syscall\n")
+	}
+
+	// Generate all regular functions
+	for _, stmt := range program.Statements {
+		if funcStmt, ok := stmt.(*parser.FunctionStatement); ok {
+			if !funcStmt.IsEntry {
+				cg.generateFunction(funcStmt)
+			}
+		}
+	}
 }
 
 func (cg *CodeGenerator) generateBlockStatement(block *parser.BlockStatement) {
@@ -129,6 +144,17 @@ func (cg *CodeGenerator) generateCallStatement(stmt *parser.CallStatement, varia
 				cg.output.WriteString(fmt.Sprintf("    mov rdi, %s      # exit status\n", exitCode))
 				cg.output.WriteString("    syscall\n")
 			}
+		}
+	default:
+		// User-defined function call
+		cg.output.WriteString(fmt.Sprintf("    # Call %s\n", stmt.Function))
+
+		// For now, we'll support simple function calls without parameters
+		// TODO: Handle function parameters and return values
+		if len(stmt.Arguments) == 0 {
+			cg.output.WriteString(fmt.Sprintf("    call %s\n", stmt.Function))
+		} else {
+			cg.output.WriteString("    # TODO: Function calls with parameters not yet implemented\n")
 		}
 	}
 }
@@ -191,4 +217,32 @@ func (cg *CodeGenerator) processString(s string) string {
 	s = strings.ReplaceAll(s, "\\\\", "\\\\")
 	s = strings.ReplaceAll(s, "\\\"", "\\\"")
 	return s
+}
+
+func (cg *CodeGenerator) generateFunction(funcStmt *parser.FunctionStatement) {
+	if !funcStmt.IsEntry {
+		// Generate function label
+		cg.output.WriteString(fmt.Sprintf("%s:\n", funcStmt.Name))
+
+		// Set up stack frame for regular functions
+		cg.output.WriteString("    push rbp\n")
+		cg.output.WriteString("    mov rbp, rsp\n")
+	}
+
+	// Generate function body
+	cg.generateBlockStatement(funcStmt.Body)
+
+	if !funcStmt.IsEntry {
+		// Default return for regular functions
+		cg.output.WriteString("    # Default function return\n")
+		cg.output.WriteString("    mov rsp, rbp\n")
+		cg.output.WriteString("    pop rbp\n")
+		cg.output.WriteString("    ret\n")
+	} else {
+		// Default exit for Entry function
+		cg.output.WriteString("    # Default exit\n")
+		cg.output.WriteString("    mov rax, 60      # sys_exit\n")
+		cg.output.WriteString("    mov rdi, 0       # exit status\n")
+		cg.output.WriteString("    syscall\n")
+	}
 }
