@@ -45,12 +45,12 @@ func (cg *CodeGenerator) writeDataSection(program *parser.Program) {
 	// Collect all string literals
 	cg.collectStrings(program)
 
-	// Generate string constants
+	// Generate null-terminated string constants
 	for literal, label := range cg.stringConstants {
-		// Convert escape sequences
+		// Convert escape sequences and add null terminator
 		processed := cg.processString(literal)
-		cg.output.WriteString(fmt.Sprintf("%s: .ascii \"%s\"\n", label, processed))
-		cg.output.WriteString(fmt.Sprintf("%s_len = . - %s\n", label, label))
+		cg.output.WriteString(fmt.Sprintf("%s: .asciz \"%s\"\n", label, processed))
+		// Note: .asciz automatically adds a null terminator, so no length calculation needed
 	}
 
 	cg.output.WriteString("\n")
@@ -58,6 +58,10 @@ func (cg *CodeGenerator) writeDataSection(program *parser.Program) {
 
 func (cg *CodeGenerator) writeTextSection(program *parser.Program) {
 	cg.output.WriteString(".section .text\n")
+
+	// Add strlen helper function for null-terminated strings
+	// Add strlen helper function for null-terminated strings
+	cg.generateStrlenFunction()
 
 	// Find and generate the Entry function first
 	var entryFound bool
@@ -121,7 +125,7 @@ func (cg *CodeGenerator) generateAssignStatement(stmt *parser.AssignStatement, v
 					label := cg.getStringLabel(a.Value)
 					if i == 0 {
 						cg.output.WriteString(fmt.Sprintf("    lea rdi, [%s]    # first parameter address\n", label))
-						cg.output.WriteString(fmt.Sprintf("    mov rsi, %s_len  # first parameter length\n", label))
+						// No need to pass length with null-terminated strings
 					}
 				case *parser.Identifier:
 					if label, exists := variables[a.Value]; exists {
@@ -178,7 +182,7 @@ func (cg *CodeGenerator) generateCallStatement(stmt *parser.CallStatement, varia
 					label := cg.getStringLabel(a.Value)
 					cg.output.WriteString(fmt.Sprintf("    # Return(%s)\n", a.Value))
 					cg.output.WriteString(fmt.Sprintf("    lea rax, [%s]    # return string address in rax\n", label))
-					cg.output.WriteString(fmt.Sprintf("    mov r8, %s_len   # return string length in r8\n", label))
+					// No need to return length with null-terminated strings
 					cg.output.WriteString("    mov rsp, rbp\n")
 					cg.output.WriteString("    pop rbp\n")
 					cg.output.WriteString("    ret\n")
@@ -201,9 +205,8 @@ func (cg *CodeGenerator) generateCallStatement(stmt *parser.CallStatement, varia
 				case *parser.StringLiteral:
 					label := cg.getStringLabel(a.Value)
 					if i == 0 {
-						// First parameter in rdi (address) and rsi (length) following x86-64 calling convention
+						// First parameter in rdi (address only) with null-terminated strings
 						cg.output.WriteString(fmt.Sprintf("    lea rdi, [%s]    # first parameter address\n", label))
-						cg.output.WriteString(fmt.Sprintf("    mov rsi, %s_len  # first parameter length\n", label))
 					} else {
 						// For now, only support one parameter
 						cg.output.WriteString("    # TODO: Multiple parameters not yet implemented\n")
@@ -223,17 +226,22 @@ func (cg *CodeGenerator) generateCallStatement(stmt *parser.CallStatement, varia
 
 func (cg *CodeGenerator) generatePrint(label string) {
 	cg.output.WriteString(fmt.Sprintf("    # Print(%s)\n", label))
+	// Calculate string length for null-terminated string
+	cg.output.WriteString(fmt.Sprintf("    lea rdi, [%s]    # string address\n", label))
+	cg.output.WriteString("    call strlen      # calculate length, result in rax\n")
+	cg.output.WriteString("    mov rdx, rax     # string length\n")
 	cg.output.WriteString("    mov rax, 1       # sys_write\n")
 	cg.output.WriteString("    mov rdi, 1       # stdout\n")
 	cg.output.WriteString(fmt.Sprintf("    lea rsi, [%s]    # string address\n", label))
-	cg.output.WriteString(fmt.Sprintf("    mov rdx, %s_len  # string length\n", label))
 	cg.output.WriteString("    syscall\n")
 }
 
 func (cg *CodeGenerator) generatePrintFromRegister() {
 	cg.output.WriteString("    # Print(parameter from rdi)\n")
+	// rdi already contains string address, just calculate length
+	cg.output.WriteString("    call strlen      # calculate length, result in rax\n")
+	cg.output.WriteString("    mov rdx, rax     # string length\n")
 	cg.output.WriteString("    mov rax, 1       # sys_write\n")
-	cg.output.WriteString("    mov rdx, rsi     # string length from parameter\n")
 	cg.output.WriteString("    mov rsi, rdi     # string address from parameter\n")
 	cg.output.WriteString("    mov rdi, 1       # stdout\n")
 	cg.output.WriteString("    syscall\n")
@@ -241,9 +249,11 @@ func (cg *CodeGenerator) generatePrintFromRegister() {
 
 func (cg *CodeGenerator) generatePrintFromRax() {
 	cg.output.WriteString("    # Print(return value from rax)\n")
-	cg.output.WriteString("    mov rsi, rax     # string address from return value\n")
-	cg.output.WriteString("    mov rdx, r8      # string length from function return\n")
+	cg.output.WriteString("    mov rdi, rax     # string address from return value\n")
+	cg.output.WriteString("    call strlen      # calculate length, result in rax\n")
+	cg.output.WriteString("    mov rdx, rax     # string length\n")
 	cg.output.WriteString("    mov rax, 1       # sys_write\n")
+	cg.output.WriteString("    mov rsi, rdi     # string address (preserved from before strlen)\n")
 	cg.output.WriteString("    mov rdi, 1       # stdout\n")
 	cg.output.WriteString("    syscall\n")
 }
@@ -356,4 +366,23 @@ func (cg *CodeGenerator) generateBlockStatementWithParams(block *parser.BlockSta
 			cg.generateCallStatement(s, variables, isEntry)
 		}
 	}
+}
+
+func (cg *CodeGenerator) generateStrlenFunction() {
+	cg.output.WriteString("# strlen function - calculates length of null-terminated string\n")
+	cg.output.WriteString("# Input: rdi = string address\n")
+	cg.output.WriteString("# Output: rax = string length\n")
+	cg.output.WriteString("strlen:\n")
+	cg.output.WriteString("    push rbp\n")
+	cg.output.WriteString("    mov rbp, rsp\n")
+	cg.output.WriteString("    mov rax, 0       # length counter\n")
+	cg.output.WriteString("strlen_loop:\n")
+	cg.output.WriteString("    cmp byte ptr [rdi + rax], 0  # check for null terminator\n")
+	cg.output.WriteString("    je strlen_done   # if null, we're done\n")
+	cg.output.WriteString("    inc rax          # increment length\n")
+	cg.output.WriteString("    jmp strlen_loop  # continue loop\n")
+	cg.output.WriteString("strlen_done:\n")
+	cg.output.WriteString("    mov rsp, rbp\n")
+	cg.output.WriteString("    pop rbp\n")
+	cg.output.WriteString("    ret\n\n")
 }
