@@ -45,9 +45,6 @@ func (cg *CodeGenerator) writeDataSection(program *parser.Program) {
 	// Collect all string literals
 	cg.collectStrings(program)
 
-	// Pre-collect common placeholder strings that might be generated during codegen
-	cg.getStringLabel("(return value)")
-
 	// Generate string constants
 	for literal, label := range cg.stringConstants {
 		// Convert escape sequences
@@ -135,11 +132,9 @@ func (cg *CodeGenerator) generateAssignStatement(stmt *parser.AssignStatement, v
 			}
 			cg.output.WriteString(fmt.Sprintf("    call %s\n", expr.Function))
 		}
-		// For string return values, assume the function returns a string label in rax
-		// For now, we'll just mark the variable as having a return value
-		// In a full implementation, we'd need proper return value passing through registers
-		variables[stmt.Name] = "(return_value)" // Special marker for return values
-		// Note: Proper return value capture would require register/stack management
+		// For string return values, the function returns a string address in rax
+		variables[stmt.Name] = "rax" // rax contains the return value address
+		// Note: rax now contains the string address returned by the function
 	}
 }
 
@@ -154,10 +149,9 @@ func (cg *CodeGenerator) generateCallStatement(stmt *parser.CallStatement, varia
 					// Check if this is a parameter (special handling)
 					if strings.HasPrefix(label, "param_") {
 						cg.generatePrintFromRegister()
-					} else if label == "(return_value)" {
-						// This is a return value - for now, print a placeholder
-						placeholderLabel := cg.getStringLabel("(return value)")
-						cg.generatePrint(placeholderLabel)
+					} else if label == "rax" {
+						// This is a string address in rax (from function return)
+						cg.generatePrintFromRax()
 					} else {
 						cg.generatePrint(label)
 					}
@@ -179,8 +173,10 @@ func (cg *CodeGenerator) generateCallStatement(stmt *parser.CallStatement, varia
 					cg.output.WriteString(fmt.Sprintf("    mov rdi, %s      # exit status\n", exitCode))
 					cg.output.WriteString("    syscall\n")
 				} else {
-					// Regular function: return value (for now, just return to caller)
+					// Regular function: return value through rax register
+					label := cg.getStringLabel(a.Value)
 					cg.output.WriteString(fmt.Sprintf("    # Return(%s)\n", a.Value))
+					cg.output.WriteString(fmt.Sprintf("    lea rax, [%s]    # return string address in rax\n", label))
 					cg.output.WriteString("    mov rsp, rbp\n")
 					cg.output.WriteString("    pop rbp\n")
 					cg.output.WriteString("    ret\n")
@@ -239,6 +235,17 @@ func (cg *CodeGenerator) generatePrintFromRegister() {
 	// For now, assume a reasonable string length for parameters
 	// In a full implementation, we'd need to calculate or store the length
 	cg.output.WriteString("    mov rdx, 32      # assumed parameter string length\n")
+	cg.output.WriteString("    syscall\n")
+}
+
+func (cg *CodeGenerator) generatePrintFromRax() {
+	cg.output.WriteString("    # Print(return value from rax)\n")
+	cg.output.WriteString("    mov rsi, rax     # string address from return value\n")
+	cg.output.WriteString("    mov rax, 1       # sys_write\n")
+	cg.output.WriteString("    mov rdi, 1       # stdout\n")
+	// For now, assume a reasonable string length for return values
+	// In a full implementation, we'd need to calculate or store the length
+	cg.output.WriteString("    mov rdx, 32      # assumed return value string length\n")
 	cg.output.WriteString("    syscall\n")
 }
 
