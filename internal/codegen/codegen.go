@@ -91,7 +91,7 @@ func (cg *CodeGenerator) writeTextSection(program *parser.Program) {
 	}
 }
 
-func (cg *CodeGenerator) generateBlockStatement(block *parser.BlockStatement) {
+func (cg *CodeGenerator) generateBlockStatement(block *parser.BlockStatement, isEntry bool) {
 	variables := make(map[string]string) // variable name -> label/register
 
 	for _, stmt := range block.Statements {
@@ -99,7 +99,7 @@ func (cg *CodeGenerator) generateBlockStatement(block *parser.BlockStatement) {
 		case *parser.AssignStatement:
 			cg.generateAssignStatement(s, variables)
 		case *parser.CallStatement:
-			cg.generateCallStatement(s, variables)
+			cg.generateCallStatement(s, variables, isEntry)
 		}
 	}
 }
@@ -115,10 +115,20 @@ func (cg *CodeGenerator) generateAssignStatement(stmt *parser.AssignStatement, v
 		if ref, exists := variables[expr.Value]; exists {
 			variables[stmt.Name] = ref
 		}
+	case *parser.CallExpression:
+		// Function call assignment - for now, just call the function
+		// TODO: Implement proper return value handling
+		cg.output.WriteString(fmt.Sprintf("    # %s = %s()\n", stmt.Name, expr.Function))
+		if len(expr.Arguments) == 0 {
+			cg.output.WriteString(fmt.Sprintf("    call %s\n", expr.Function))
+		} else {
+			cg.output.WriteString("    # TODO: Function calls with parameters not yet implemented\n")
+		}
+		// For now, we don't capture the return value
 	}
 }
 
-func (cg *CodeGenerator) generateCallStatement(stmt *parser.CallStatement, variables map[string]string) {
+func (cg *CodeGenerator) generateCallStatement(stmt *parser.CallStatement, variables map[string]string, isEntry bool) {
 	switch stmt.Function {
 	case "Print":
 		if len(stmt.Arguments) > 0 {
@@ -137,12 +147,20 @@ func (cg *CodeGenerator) generateCallStatement(stmt *parser.CallStatement, varia
 		if len(stmt.Arguments) > 0 {
 			switch a := stmt.Arguments[0].(type) {
 			case *parser.StringLiteral:
-				// Assume it's a number for Return
-				exitCode := a.Value
-				cg.output.WriteString(fmt.Sprintf("    # Return(%s)\n", exitCode))
-				cg.output.WriteString("    mov rax, 60      # sys_exit\n")
-				cg.output.WriteString(fmt.Sprintf("    mov rdi, %s      # exit status\n", exitCode))
-				cg.output.WriteString("    syscall\n")
+				if isEntry {
+					// Entry function: exit the program
+					exitCode := a.Value
+					cg.output.WriteString(fmt.Sprintf("    # Return(%s)\n", exitCode))
+					cg.output.WriteString("    mov rax, 60      # sys_exit\n")
+					cg.output.WriteString(fmt.Sprintf("    mov rdi, %s      # exit status\n", exitCode))
+					cg.output.WriteString("    syscall\n")
+				} else {
+					// Regular function: return value (for now, just return to caller)
+					cg.output.WriteString(fmt.Sprintf("    # Return(%s)\n", a.Value))
+					cg.output.WriteString("    mov rsp, rbp\n")
+					cg.output.WriteString("    pop rbp\n")
+					cg.output.WriteString("    ret\n")
+				}
 			}
 		}
 	default:
@@ -230,7 +248,7 @@ func (cg *CodeGenerator) generateFunction(funcStmt *parser.FunctionStatement) {
 	}
 
 	// Generate function body
-	cg.generateBlockStatement(funcStmt.Body)
+	cg.generateBlockStatement(funcStmt.Body, funcStmt.IsEntry)
 
 	if !funcStmt.IsEntry {
 		// Default return for regular functions

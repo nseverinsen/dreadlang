@@ -54,7 +54,22 @@ type FunctionStatement struct {
 
 func (fs *FunctionStatement) statementNode() {}
 func (fs *FunctionStatement) String() string {
-	return fmt.Sprintf("Entry %s() (%s) %s", fs.Name, fs.ReturnType, fs.Body.String())
+	var keyword string
+	if fs.IsEntry {
+		keyword = "Entry"
+	} else {
+		keyword = "Function"
+	}
+
+	var params string
+	for i, param := range fs.Parameters {
+		if i > 0 {
+			params += ", "
+		}
+		params += param.String()
+	}
+
+	return fmt.Sprintf("%s %s(%s) (%s) %s", keyword, fs.Name, params, fs.ReturnType, fs.Body.String())
 }
 
 type BlockStatement struct {
@@ -89,7 +104,14 @@ type CallStatement struct {
 
 func (cs *CallStatement) statementNode() {}
 func (cs *CallStatement) String() string {
-	return fmt.Sprintf("%s(%s)", cs.Function, cs.Arguments[0].String())
+	var args string
+	for i, arg := range cs.Arguments {
+		if i > 0 {
+			args += ", "
+		}
+		args += arg.String()
+	}
+	return fmt.Sprintf("%s(%s)", cs.Function, args)
 }
 
 // Expressions
@@ -118,6 +140,23 @@ type Identifier struct {
 func (i *Identifier) expressionNode() {}
 func (i *Identifier) String() string {
 	return i.Value
+}
+
+type CallExpression struct {
+	Function  string
+	Arguments []Expression
+}
+
+func (ce *CallExpression) expressionNode() {}
+func (ce *CallExpression) String() string {
+	var args string
+	for i, arg := range ce.Arguments {
+		if i > 0 {
+			args += ", "
+		}
+		args += arg.String()
+	}
+	return fmt.Sprintf("%s(%s)", ce.Function, args)
 }
 
 // Parser
@@ -176,14 +215,18 @@ func (p *Parser) ParseProgram() *Program {
 func (p *Parser) parseStatement() Statement {
 	switch p.curToken.Type {
 	case lexer.ENTRY:
-		return p.parseFunctionStatement()
+		return p.parseFunctionStatement(true)
+	case lexer.FUNCTION:
+		return p.parseFunctionStatement(false)
 	default:
 		return p.parseBlockStatement()
 	}
 }
 
-func (p *Parser) parseFunctionStatement() Statement {
-	stmt := &FunctionStatement{}
+func (p *Parser) parseFunctionStatement(isEntry bool) Statement {
+	stmt := &FunctionStatement{
+		IsEntry: isEntry,
+	}
 
 	if !p.expectPeek(lexer.IDENT) {
 		return nil
@@ -195,22 +238,34 @@ func (p *Parser) parseFunctionStatement() Statement {
 		return nil
 	}
 
-	if !p.expectPeek(lexer.RPAREN) {
-		return nil
-	}
-
-	if !p.expectPeek(lexer.LPAREN) {
-		return nil
-	}
-
-	if !p.expectPeek(lexer.INT_TYPE) {
-		return nil
-	}
-
-	stmt.ReturnType = p.curToken.Literal
+	// Parse parameters
+	stmt.Parameters = p.parseParameters()
 
 	if !p.expectPeek(lexer.RPAREN) {
 		return nil
+	}
+
+	// Handle return type - three possible syntaxes:
+	// 1. () (Type)  - parenthesized return type
+	// 2. () Type    - bare return type
+	// 3. () {       - no return type (defaults to Void)
+	if p.peekToken.Type == lexer.LPAREN {
+		// Syntax: () (Type)
+		p.nextToken() // consume LPAREN
+		if !p.expectPeek(lexer.INT_TYPE) && !p.expectPeek(lexer.STRING_TYPE) && !p.expectPeek(lexer.VOID_TYPE) {
+			return nil
+		}
+		stmt.ReturnType = p.curToken.Literal
+		if !p.expectPeek(lexer.RPAREN) {
+			return nil
+		}
+	} else if p.peekToken.Type == lexer.INT_TYPE || p.peekToken.Type == lexer.STRING_TYPE || p.peekToken.Type == lexer.VOID_TYPE {
+		// Syntax: () Type
+		p.nextToken()
+		stmt.ReturnType = p.curToken.Literal
+	} else {
+		// No return type specified, default to Void
+		stmt.ReturnType = "Void"
 	}
 
 	if !p.expectPeek(lexer.LBRACE) {
@@ -220,6 +275,68 @@ func (p *Parser) parseFunctionStatement() Statement {
 	stmt.Body = p.parseBlockStatement()
 
 	return stmt
+}
+
+func (p *Parser) parseParameters() []*Parameter {
+	parameters := []*Parameter{}
+
+	// If the next token is RPAREN, there are no parameters
+	if p.peekToken.Type == lexer.RPAREN {
+		return parameters
+	}
+
+	// Move to the first parameter
+	p.nextToken()
+
+	// Parse first parameter
+	param := p.parseParameter()
+	if param != nil {
+		parameters = append(parameters, param)
+	}
+
+	// Parse remaining parameters
+	for p.peekToken.Type == lexer.COMMA {
+		p.nextToken() // consume the comma
+		p.nextToken() // move to next parameter
+		param := p.parseParameter()
+		if param != nil {
+			parameters = append(parameters, param)
+		}
+	}
+
+	return parameters
+}
+
+func (p *Parser) parseParameter() *Parameter {
+	// Support syntax: Type name (e.g., "String input_str")
+	if p.curToken.Type == lexer.STRING_TYPE || p.curToken.Type == lexer.INT_TYPE {
+		param := &Parameter{
+			Type: p.curToken.Literal,
+		}
+
+		if !p.expectPeek(lexer.IDENT) {
+			return nil
+		}
+
+		param.Name = p.curToken.Literal
+		return param
+	}
+
+	// Support syntax: name Type (e.g., "input_str String")
+	if p.curToken.Type == lexer.IDENT {
+		param := &Parameter{
+			Name: p.curToken.Literal,
+		}
+
+		if !p.expectPeek(lexer.STRING_TYPE) && !p.expectPeek(lexer.INT_TYPE) {
+			return nil
+		}
+
+		param.Type = p.curToken.Literal
+		return param
+	}
+
+	return nil
 }
 
 func (p *Parser) parseBlockStatement() *BlockStatement {
@@ -250,6 +367,9 @@ func (p *Parser) parseInnerStatement() Statement {
 	case lexer.IDENT:
 		if p.peekToken.Type == lexer.ASSIGN {
 			return p.parseAssignStatement()
+		} else if p.peekToken.Type == lexer.LPAREN {
+			// This is a function call statement
+			return p.parseCallStatement()
 		}
 		return nil
 	case lexer.PRINT, lexer.RETURN:
@@ -281,15 +401,43 @@ func (p *Parser) parseCallStatement() Statement {
 		return nil
 	}
 
-	p.nextToken()
-	arg := p.parseExpression()
-	stmt.Arguments = []Expression{arg}
+	stmt.Arguments = p.parseArgumentList()
 
 	if !p.expectPeek(lexer.RPAREN) {
 		return nil
 	}
 
 	return stmt
+}
+
+func (p *Parser) parseArgumentList() []Expression {
+	args := []Expression{}
+
+	// If the next token is RPAREN, there are no arguments
+	if p.peekToken.Type == lexer.RPAREN {
+		return args
+	}
+
+	// Move to the first argument
+	p.nextToken()
+
+	// Parse first argument
+	arg := p.parseExpression()
+	if arg != nil {
+		args = append(args, arg)
+	}
+
+	// Parse remaining arguments
+	for p.peekToken.Type == lexer.COMMA {
+		p.nextToken() // consume the comma
+		p.nextToken() // move to next argument
+		arg := p.parseExpression()
+		if arg != nil {
+			args = append(args, arg)
+		}
+	}
+
+	return args
 }
 
 func (p *Parser) parseExpression() Expression {
@@ -300,10 +448,31 @@ func (p *Parser) parseExpression() Expression {
 		// For MVP, we'll just store as string and handle conversion later
 		return &StringLiteral{Value: p.curToken.Literal}
 	case lexer.IDENT:
+		// Check if this is a function call
+		if p.peekToken.Type == lexer.LPAREN {
+			return p.parseCallExpression()
+		}
 		return &Identifier{Value: p.curToken.Literal}
 	default:
 		return nil
 	}
+}
+
+func (p *Parser) parseCallExpression() Expression {
+	expr := &CallExpression{}
+	expr.Function = p.curToken.Literal
+
+	if !p.expectPeek(lexer.LPAREN) {
+		return nil
+	}
+
+	expr.Arguments = p.parseArgumentList()
+
+	if !p.expectPeek(lexer.RPAREN) {
+		return nil
+	}
+
+	return expr
 }
 
 func (p *Parser) expectPeek(t lexer.TokenType) bool {
