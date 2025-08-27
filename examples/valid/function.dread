@@ -35,6 +35,7 @@ Entry main() {
     Print(second_return_value)
 
     // No Return(0) should return 0 by default, implicit in Entry (not in Function)
+    Return(0)
 }
 
 

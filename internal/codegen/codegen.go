@@ -120,7 +120,8 @@ func (cg *CodeGenerator) generateAssignStatement(stmt *parser.AssignStatement, v
 				case *parser.StringLiteral:
 					label := cg.getStringLabel(a.Value)
 					if i == 0 {
-						cg.output.WriteString(fmt.Sprintf("    lea rdi, [%s]    # first parameter\n", label))
+						cg.output.WriteString(fmt.Sprintf("    lea rdi, [%s]    # first parameter address\n", label))
+						cg.output.WriteString(fmt.Sprintf("    mov rsi, %s_len  # first parameter length\n", label))
 					}
 				case *parser.Identifier:
 					if label, exists := variables[a.Value]; exists {
@@ -177,6 +178,7 @@ func (cg *CodeGenerator) generateCallStatement(stmt *parser.CallStatement, varia
 					label := cg.getStringLabel(a.Value)
 					cg.output.WriteString(fmt.Sprintf("    # Return(%s)\n", a.Value))
 					cg.output.WriteString(fmt.Sprintf("    lea rax, [%s]    # return string address in rax\n", label))
+					cg.output.WriteString(fmt.Sprintf("    mov r8, %s_len   # return string length in r8\n", label))
 					cg.output.WriteString("    mov rsp, rbp\n")
 					cg.output.WriteString("    pop rbp\n")
 					cg.output.WriteString("    ret\n")
@@ -199,8 +201,9 @@ func (cg *CodeGenerator) generateCallStatement(stmt *parser.CallStatement, varia
 				case *parser.StringLiteral:
 					label := cg.getStringLabel(a.Value)
 					if i == 0 {
-						// First parameter in rdi (following x86-64 calling convention)
-						cg.output.WriteString(fmt.Sprintf("    lea rdi, [%s]    # first parameter\n", label))
+						// First parameter in rdi (address) and rsi (length) following x86-64 calling convention
+						cg.output.WriteString(fmt.Sprintf("    lea rdi, [%s]    # first parameter address\n", label))
+						cg.output.WriteString(fmt.Sprintf("    mov rsi, %s_len  # first parameter length\n", label))
 					} else {
 						// For now, only support one parameter
 						cg.output.WriteString("    # TODO: Multiple parameters not yet implemented\n")
@@ -230,22 +233,18 @@ func (cg *CodeGenerator) generatePrint(label string) {
 func (cg *CodeGenerator) generatePrintFromRegister() {
 	cg.output.WriteString("    # Print(parameter from rdi)\n")
 	cg.output.WriteString("    mov rax, 1       # sys_write\n")
+	cg.output.WriteString("    mov rdx, rsi     # string length from parameter\n")
 	cg.output.WriteString("    mov rsi, rdi     # string address from parameter\n")
 	cg.output.WriteString("    mov rdi, 1       # stdout\n")
-	// For now, assume a reasonable string length for parameters
-	// In a full implementation, we'd need to calculate or store the length
-	cg.output.WriteString("    mov rdx, 32      # assumed parameter string length\n")
 	cg.output.WriteString("    syscall\n")
 }
 
 func (cg *CodeGenerator) generatePrintFromRax() {
 	cg.output.WriteString("    # Print(return value from rax)\n")
 	cg.output.WriteString("    mov rsi, rax     # string address from return value\n")
+	cg.output.WriteString("    mov rdx, r8      # string length from function return\n")
 	cg.output.WriteString("    mov rax, 1       # sys_write\n")
 	cg.output.WriteString("    mov rdi, 1       # stdout\n")
-	// For now, assume a reasonable string length for return values
-	// In a full implementation, we'd need to calculate or store the length
-	cg.output.WriteString("    mov rdx, 32      # assumed return value string length\n")
 	cg.output.WriteString("    syscall\n")
 }
 
