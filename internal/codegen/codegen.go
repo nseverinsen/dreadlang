@@ -106,6 +106,11 @@ func (cg *CodeGenerator) generateAssignStatement(stmt *parser.AssignStatement, v
 		// Store reference to string constant
 		label := cg.getStringLabel(expr.Value)
 		variables[stmt.Name] = label
+	case *parser.IntegerLiteral:
+		// Convert integer to string and store reference
+		intStr := fmt.Sprintf("%d", expr.Value)
+		label := cg.getStringLabel(intStr)
+		variables[stmt.Name] = label
 	case *parser.Identifier:
 		// Copy variable reference
 		if ref, exists := variables[expr.Value]; exists {
@@ -125,6 +130,14 @@ func (cg *CodeGenerator) generateAssignStatement(stmt *parser.AssignStatement, v
 					label := cg.getStringLabel(a.Value)
 					if i == 0 {
 						cg.output.WriteString(fmt.Sprintf("    lea rdi, [%s]    # first parameter address\n", label))
+						// No need to pass length with null-terminated strings
+					}
+				case *parser.IntegerLiteral:
+					// Convert integer to string for parameter passing
+					intStr := fmt.Sprintf("%d", a.Value)
+					label := cg.getStringLabel(intStr)
+					if i == 0 {
+						cg.output.WriteString(fmt.Sprintf("    lea rdi, [%s]    # first parameter address (integer as string)\n", label))
 						// No need to pass length with null-terminated strings
 					}
 				case *parser.Identifier:
@@ -164,6 +177,11 @@ func (cg *CodeGenerator) generateCallStatement(stmt *parser.CallStatement, varia
 			case *parser.StringLiteral:
 				label := cg.getStringLabel(a.Value)
 				cg.generatePrint(label)
+			case *parser.IntegerLiteral:
+				// Convert integer to string for printing
+				intStr := fmt.Sprintf("%d", a.Value)
+				label := cg.getStringLabel(intStr)
+				cg.generatePrint(label)
 			}
 		}
 	case "Return":
@@ -181,6 +199,25 @@ func (cg *CodeGenerator) generateCallStatement(stmt *parser.CallStatement, varia
 					// Regular function: return value through rax register
 					label := cg.getStringLabel(a.Value)
 					cg.output.WriteString(fmt.Sprintf("    # Return(%s)\n", a.Value))
+					cg.output.WriteString(fmt.Sprintf("    lea rax, [%s]    # return string address in rax\n", label))
+					// No need to return length with null-terminated strings
+					cg.output.WriteString("    mov rsp, rbp\n")
+					cg.output.WriteString("    pop rbp\n")
+					cg.output.WriteString("    ret\n")
+				}
+			case *parser.IntegerLiteral:
+				if isEntry {
+					// Entry function: exit the program with integer exit code
+					exitCode := fmt.Sprintf("%d", a.Value)
+					cg.output.WriteString(fmt.Sprintf("    # Return(%d)\n", a.Value))
+					cg.output.WriteString("    mov rax, 60      # sys_exit\n")
+					cg.output.WriteString(fmt.Sprintf("    mov rdi, %s      # exit status\n", exitCode))
+					cg.output.WriteString("    syscall\n")
+				} else {
+					// Regular function: return integer as string
+					intStr := fmt.Sprintf("%d", a.Value)
+					label := cg.getStringLabel(intStr)
+					cg.output.WriteString(fmt.Sprintf("    # Return(%d)\n", a.Value))
 					cg.output.WriteString(fmt.Sprintf("    lea rax, [%s]    # return string address in rax\n", label))
 					// No need to return length with null-terminated strings
 					cg.output.WriteString("    mov rsp, rbp\n")
@@ -207,6 +244,17 @@ func (cg *CodeGenerator) generateCallStatement(stmt *parser.CallStatement, varia
 					if i == 0 {
 						// First parameter in rdi (address only) with null-terminated strings
 						cg.output.WriteString(fmt.Sprintf("    lea rdi, [%s]    # first parameter address\n", label))
+					} else {
+						// For now, only support one parameter
+						cg.output.WriteString("    # TODO: Multiple parameters not yet implemented\n")
+					}
+				case *parser.IntegerLiteral:
+					// Convert integer to string for parameter passing
+					intStr := fmt.Sprintf("%d", a.Value)
+					label := cg.getStringLabel(intStr)
+					if i == 0 {
+						// First parameter in rdi (address only) with null-terminated strings
+						cg.output.WriteString(fmt.Sprintf("    lea rdi, [%s]    # first parameter address (integer as string)\n", label))
 					} else {
 						// For now, only support one parameter
 						cg.output.WriteString("    # TODO: Multiple parameters not yet implemented\n")
@@ -285,6 +333,10 @@ func (cg *CodeGenerator) collectStringsFromExpression(expr parser.Expression) {
 	switch e := expr.(type) {
 	case *parser.StringLiteral:
 		cg.getStringLabel(e.Value)
+	case *parser.IntegerLiteral:
+		// Convert integer to string and collect it
+		intStr := fmt.Sprintf("%d", e.Value)
+		cg.getStringLabel(intStr)
 	case *parser.CallExpression:
 		// Collect strings from function call arguments
 		for _, arg := range e.Arguments {

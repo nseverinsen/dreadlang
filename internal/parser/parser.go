@@ -3,6 +3,7 @@ package parser
 import (
 	"dreadlang/internal/lexer"
 	"fmt"
+	"strconv"
 )
 
 // AST Node types
@@ -445,8 +446,13 @@ func (p *Parser) parseExpression() Expression {
 	case lexer.STRING:
 		return &StringLiteral{Value: p.curToken.Literal}
 	case lexer.INT:
-		// For MVP, we'll just store as string and handle conversion later
-		return &StringLiteral{Value: p.curToken.Literal}
+		// Parse as proper IntegerLiteral
+		val, err := strconv.ParseInt(p.curToken.Literal, 10, 64)
+		if err != nil {
+			p.errors = append(p.errors, fmt.Sprintf("could not parse %q as integer", p.curToken.Literal))
+			return nil
+		}
+		return &IntegerLiteral{Value: val}
 	case lexer.IDENT:
 		// Check if this is a function call
 		if p.peekToken.Type == lexer.LPAREN {
