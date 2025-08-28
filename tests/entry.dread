@@ -1,0 +1,26 @@
+// Example demonstrating current Entry function constraints
+// This program shows valid Dread syntax with exactly one Entry function
+
+/*
+ * Program entry point - there can be only one Entry function per executable
+ * It must be named 'main' and return Int type
+ */
+Entry main() (Int)
+{
+    // Variable assignment
+    program_name = 'Dread Language Demo
+'
+
+    // Print program information
+    Print(program_name)
+
+    // Successful exit
+    Return(0)
+}
+
+// Future: Regular functions will be declared with 'Function' keyword
+// Function helper() (Int)
+// {
+//     Print('This will be possible in Milestone 2!')
+//     Return(1)
+// }

@@ -60,6 +60,6 @@ temp_*
 # Log files
 *.log
 
-# Test files (but keep examples/)
-test_*.dread
-temp_*.dread
+# Temporary test files in root (but keep tests/ directory)
+/test_*.dread
+/temp_*.dread

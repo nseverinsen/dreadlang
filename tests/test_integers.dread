@@ -1,0 +1,11 @@
+Entry main() {
+    Print('Integer: ')
+    Print(42)
+    Print('\n')
+
+    Print('Another integer: ')
+    Print(9999)
+    Print('\n')
+
+    Return(0)
+}

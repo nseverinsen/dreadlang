@@ -44,6 +44,28 @@ Compile and run:
 ./hello
 ```
 
+## 🛠️ Development Tools
+
+Dread includes several built-in tools for debugging and development:
+
+### Debug Tool
+View tokens and AST for any Dread file:
+```bash
+go run cmd/debug/main.go examples/hello.dread
+```
+
+### Assembly Viewer
+See generated assembly code:
+```bash
+go run cmd/assembly/main.go examples/hello.dread
+```
+
+### Test Runner
+Run all test files in the `tests/` directory:
+```bash
+go run cmd/test/main.go
+```
+
 ## 📝 Language Syntax
 
 ### Keywords

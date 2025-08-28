@@ -1,0 +1,10 @@
+Entry main() {
+    Print('Testing multiple integers:\n')
+    Print(100)
+    Print('\n')
+    Print(200)
+    Print('\n')
+    Print(300)
+    Print('\n')
+    Return(0)
+}

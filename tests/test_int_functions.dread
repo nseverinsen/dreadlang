@@ -1,0 +1,14 @@
+Function printNumber(Int n) {
+    Print('Number: ')
+    Print(n)
+    Print('\n')
+    Return(0)
+}
+
+Entry main() {
+    number = 456
+    printNumber(number)
+    printNumber(789)
+
+    Return(0)
+}

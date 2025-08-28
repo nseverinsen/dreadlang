@@ -1,0 +1,7 @@
+
+
+Entry main() {
+    Print(1337)
+    Print('\n')
+    Return(0)
+}

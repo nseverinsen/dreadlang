@@ -1,0 +1,8 @@
+Entry main() {
+    num = 123
+    Print('The number is: ')
+    Print(num)
+    Print('\n')
+
+    Return(0)
+}

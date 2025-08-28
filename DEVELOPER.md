@@ -44,10 +44,36 @@ internal/
 └── codegen/    # Code generation (AST → assembly)
 
 cmd/
-└── dreadc/     # Compiler driver (main application)
+├── dreadc/     # Compiler driver (main application)
+├── debug/      # Debug tool for inspecting tokens and AST
+├── assembly/   # Assembly viewer for generated code
+└── test/       # Test runner for all test files
 
 examples/       # Example Dread programs
+tests/          # Test programs (automatically moved from test_*.dread files)
 ```
+
+### Development Tools
+
+The Dread compiler includes several built-in development tools:
+
+1. **Debug Tool** (`cmd/debug`):
+   ```bash
+   go run cmd/debug/main.go <file.dread>
+   ```
+   Shows source code, token stream, and AST for any Dread file. Useful for understanding how your code is parsed.
+
+2. **Assembly Viewer** (`cmd/assembly`):
+   ```bash
+   go run cmd/assembly/main.go <file.dread>
+   ```
+   Shows the generated assembly code without creating an executable. Perfect for inspecting the compiler output.
+
+3. **Test Runner** (`cmd/test`):
+   ```bash
+   go run cmd/test/main.go
+   ```
+   Runs all test files in the `tests/` directory, compiles them, and executes them to verify functionality.
 
 ### Key Files
 
