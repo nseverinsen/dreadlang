@@ -453,6 +453,19 @@ func (p *Parser) parseExpression() Expression {
 			return nil
 		}
 		return &IntegerLiteral{Value: val}
+	case lexer.MINUS:
+		// Handle negative numbers
+		if p.peekToken.Type == lexer.INT {
+			p.nextToken() // consume the minus
+			val, err := strconv.ParseInt(p.curToken.Literal, 10, 64)
+			if err != nil {
+				p.errors = append(p.errors, fmt.Sprintf("could not parse %q as integer", p.curToken.Literal))
+				return nil
+			}
+			return &IntegerLiteral{Value: -val} // negate the value
+		}
+		p.errors = append(p.errors, fmt.Sprintf("minus token not followed by integer"))
+		return nil
 	case lexer.IDENT:
 		// Check if this is a function call
 		if p.peekToken.Type == lexer.LPAREN {

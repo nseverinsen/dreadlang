@@ -1,0 +1,4 @@
+Entry main() {
+    ret_val = 42
+    Return(ret_val)
+}

@@ -1,0 +1,6 @@
+
+
+Entry main() {
+    ret_val = -1
+    Return(ret_val)
+}

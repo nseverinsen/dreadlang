@@ -30,6 +30,7 @@ const (
 
 	// Operators
 	ASSIGN // =
+	MINUS  // -
 
 	// Comments (we'll skip these in parsing)
 	COMMENT
@@ -103,6 +104,8 @@ func (l *Lexer) NextToken() Token {
 	switch l.ch {
 	case '=':
 		tok = Token{Type: ASSIGN, Literal: string(l.ch), Line: l.line, Column: l.column}
+	case '-':
+		tok = Token{Type: MINUS, Literal: string(l.ch), Line: l.line, Column: l.column}
 	case '(':
 		tok = Token{Type: LPAREN, Literal: string(l.ch), Line: l.line, Column: l.column}
 	case ')':
@@ -297,6 +300,8 @@ func (t TokenType) String() string {
 		return "COMMA"
 	case ASSIGN:
 		return "ASSIGN"
+	case MINUS:
+		return "MINUS"
 	case COMMENT:
 		return "COMMENT"
 	default:

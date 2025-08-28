@@ -224,6 +224,41 @@ func (cg *CodeGenerator) generateCallStatement(stmt *parser.CallStatement, varia
 					cg.output.WriteString("    pop rbp\n")
 					cg.output.WriteString("    ret\n")
 				}
+			case *parser.Identifier:
+				// Handle return of a variable
+				if label, exists := variables[a.Value]; exists {
+					if isEntry {
+						// For Entry function, try to parse the string as an exit code
+						// This assumes the variable contains a string representation of an integer
+						cg.output.WriteString(fmt.Sprintf("    # Return(variable %s)\n", a.Value))
+						// For simplicity, we'll extract the integer from the string at compile time
+						// by looking at the stored label content
+						if exitCodeStr, found := cg.getStringFromLabel(label); found {
+							cg.output.WriteString("    mov rax, 60      # sys_exit\n")
+							cg.output.WriteString(fmt.Sprintf("    mov rdi, %s      # exit status from variable\n", exitCodeStr))
+							cg.output.WriteString("    syscall\n")
+						} else {
+							// Fallback to 0 if we can't determine the value
+							cg.output.WriteString("    mov rax, 60      # sys_exit\n")
+							cg.output.WriteString("    mov rdi, 0       # fallback exit status\n")
+							cg.output.WriteString("    syscall\n")
+						}
+					} else {
+						// Regular function: return the variable's string address
+						cg.output.WriteString(fmt.Sprintf("    # Return(variable %s)\n", a.Value))
+						cg.output.WriteString(fmt.Sprintf("    lea rax, [%s]    # return variable address in rax\n", label))
+						cg.output.WriteString("    mov rsp, rbp\n")
+						cg.output.WriteString("    pop rbp\n")
+						cg.output.WriteString("    ret\n")
+					}
+				} else {
+					cg.output.WriteString(fmt.Sprintf("    # Return(undefined variable %s) - using 0\n", a.Value))
+					if isEntry {
+						cg.output.WriteString("    mov rax, 60      # sys_exit\n")
+						cg.output.WriteString("    mov rdi, 0       # exit status\n")
+						cg.output.WriteString("    syscall\n")
+					}
+				}
 			}
 		}
 	default:
@@ -354,6 +389,16 @@ func (cg *CodeGenerator) getStringLabel(literal string) string {
 	cg.stringConstants[literal] = label
 	cg.stringCounter++
 	return label
+}
+
+func (cg *CodeGenerator) getStringFromLabel(labelName string) (string, bool) {
+	// Reverse lookup: find the string content for a given label
+	for content, label := range cg.stringConstants {
+		if label == labelName {
+			return content, true
+		}
+	}
+	return "", false
 }
 
 func (cg *CodeGenerator) processString(s string) string {
