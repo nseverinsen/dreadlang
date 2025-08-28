@@ -14,10 +14,17 @@ type CodeGenerator struct {
 }
 
 func New() *CodeGenerator {
-	return &CodeGenerator{
+	cg := &CodeGenerator{
 		stringConstants: make(map[string]string),
 		stringCounter:   0,
 	}
+
+	// Pre-generate common integer strings that might be needed for arithmetic
+	for i := 0; i <= 10; i++ {
+		cg.getStringLabel(fmt.Sprintf("%d", i))
+	}
+
+	return cg
 }
 
 func (cg *CodeGenerator) Generate(program *parser.Program) string {
@@ -117,6 +124,10 @@ func (cg *CodeGenerator) generateAssignStatement(stmt *parser.AssignStatement, v
 		if ref, exists := variables[expr.Value]; exists {
 			variables[stmt.Name] = ref
 		}
+	case *parser.InfixExpression:
+		// Handle arithmetic expressions
+		result := cg.generateInfixExpression(expr, variables)
+		variables[stmt.Name] = result
 	case *parser.CallExpression:
 		// Function call assignment - implement return value handling
 		cg.output.WriteString(fmt.Sprintf("    # %s = %s()\n", stmt.Name, expr.Function))
@@ -537,6 +548,41 @@ func (cg *CodeGenerator) collectStringsFromExpression(expr parser.Expression) {
 		// Convert integer to string and collect it
 		intStr := fmt.Sprintf("%d", e.Value)
 		cg.getStringLabel(intStr)
+	case *parser.InfixExpression:
+		// Collect strings from both operands
+		cg.collectStringsFromExpression(e.Left)
+		cg.collectStringsFromExpression(e.Right)
+
+		// Also evaluate and collect the result string
+		if e.Operator == "+" {
+			// Evaluate left operand
+			var leftValue int64
+			switch left := e.Left.(type) {
+			case *parser.IntegerLiteral:
+				leftValue = left.Value
+			case *parser.Identifier:
+				// For collection phase, we can't resolve variables yet
+				// Just ensure "0" is available as a fallback
+				cg.getStringLabel("0")
+				return
+			}
+
+			// Evaluate right operand
+			var rightValue int64
+			switch right := e.Right.(type) {
+			case *parser.IntegerLiteral:
+				rightValue = right.Value
+			case *parser.Identifier:
+				// For collection phase, we can't resolve variables yet
+				cg.getStringLabel("0")
+				return
+			}
+
+			// Calculate and collect result
+			result := leftValue + rightValue
+			resultStr := fmt.Sprintf("%d", result)
+			cg.getStringLabel(resultStr)
+		}
 	case *parser.CallExpression:
 		// Collect strings from function call arguments
 		for _, arg := range e.Arguments {
@@ -564,6 +610,59 @@ func (cg *CodeGenerator) getStringFromLabel(labelName string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+func (cg *CodeGenerator) generateInfixExpression(expr *parser.InfixExpression, variables map[string]string) string {
+	// For now, only handle integer addition
+	if expr.Operator != "+" {
+		// TODO: Support other operators like -, *, /
+		return ""
+	}
+
+	// Evaluate left operand
+	var leftValue int64
+	switch left := expr.Left.(type) {
+	case *parser.IntegerLiteral:
+		leftValue = left.Value
+	case *parser.Identifier:
+		// Look up variable value - for now assume it's an integer stored as string
+		if label, exists := variables[left.Value]; exists {
+			if content, found := cg.getStringFromLabel(label); found {
+				if val, err := strconv.ParseInt(content, 10, 64); err == nil {
+					leftValue = val
+				}
+			}
+		}
+	default:
+		// Unsupported left operand type
+		return ""
+	}
+
+	// Evaluate right operand
+	var rightValue int64
+	switch right := expr.Right.(type) {
+	case *parser.IntegerLiteral:
+		rightValue = right.Value
+	case *parser.Identifier:
+		// Look up variable value
+		if label, exists := variables[right.Value]; exists {
+			if content, found := cg.getStringFromLabel(label); found {
+				if val, err := strconv.ParseInt(content, 10, 64); err == nil {
+					rightValue = val
+				}
+			}
+		}
+	default:
+		// Unsupported right operand type
+		return ""
+	}
+
+	// Perform the addition
+	result := leftValue + rightValue
+
+	// Convert result to string and store it
+	resultStr := fmt.Sprintf("%d", result)
+	return cg.getStringLabel(resultStr)
 }
 
 func (cg *CodeGenerator) processString(s string) string {

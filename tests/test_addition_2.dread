@@ -1,0 +1,6 @@
+Entry main() (Int)
+{
+result = 5 + 3
+Print(result)
+Return(0)
+}

@@ -1,0 +1,7 @@
+Entry main() (Int)
+{
+a = 1
+b = a + 1
+Print(b)
+Return(0)
+}

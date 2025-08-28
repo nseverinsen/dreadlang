@@ -31,12 +31,14 @@ const (
 	// Operators
 	ASSIGN // =
 	MINUS  // -
+	PLUS   // +
 
 	// Comments (we'll skip these in parsing)
 	COMMENT
 )
 
 var keywords = map[string]TokenType{
+	"START":    ENTRY,
 	"Entry":    ENTRY,
 	"Function": FUNCTION,
 	"Print":    PRINT,
@@ -106,6 +108,8 @@ func (l *Lexer) NextToken() Token {
 		tok = Token{Type: ASSIGN, Literal: string(l.ch), Line: l.line, Column: l.column}
 	case '-':
 		tok = Token{Type: MINUS, Literal: string(l.ch), Line: l.line, Column: l.column}
+	case '+':
+		tok = Token{Type: PLUS, Literal: string(l.ch), Line: l.line, Column: l.column}
 	case '(':
 		tok = Token{Type: LPAREN, Literal: string(l.ch), Line: l.line, Column: l.column}
 	case ')':
@@ -302,6 +306,8 @@ func (t TokenType) String() string {
 		return "ASSIGN"
 	case MINUS:
 		return "MINUS"
+	case PLUS:
+		return "PLUS"
 	case COMMENT:
 		return "COMMENT"
 	default:

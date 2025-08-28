@@ -160,6 +160,17 @@ func (ce *CallExpression) String() string {
 	return fmt.Sprintf("%s(%s)", ce.Function, args)
 }
 
+type InfixExpression struct {
+	Left     Expression
+	Operator string
+	Right    Expression
+}
+
+func (ie *InfixExpression) expressionNode() {}
+func (ie *InfixExpression) String() string {
+	return fmt.Sprintf("(%s %s %s)", ie.Left.String(), ie.Operator, ie.Right.String())
+}
+
 // Parser
 type Parser struct {
 	l *lexer.Lexer
@@ -442,6 +453,17 @@ func (p *Parser) parseArgumentList() []Expression {
 }
 
 func (p *Parser) parseExpression() Expression {
+	left := p.parsePrimaryExpression()
+
+	// Check for infix operators
+	if p.peekToken.Type == lexer.PLUS || p.peekToken.Type == lexer.MINUS {
+		return p.parseInfixExpression(left)
+	}
+
+	return left
+}
+
+func (p *Parser) parsePrimaryExpression() Expression {
 	switch p.curToken.Type {
 	case lexer.STRING:
 		return &StringLiteral{Value: p.curToken.Literal}
@@ -464,7 +486,7 @@ func (p *Parser) parseExpression() Expression {
 			}
 			return &IntegerLiteral{Value: -val} // negate the value
 		}
-		p.errors = append(p.errors, fmt.Sprintf("minus token not followed by integer"))
+		p.errors = append(p.errors, "minus token not followed by integer")
 		return nil
 	case lexer.IDENT:
 		// Check if this is a function call
@@ -475,6 +497,22 @@ func (p *Parser) parseExpression() Expression {
 	default:
 		return nil
 	}
+}
+
+func (p *Parser) parseInfixExpression(left Expression) Expression {
+	infix := &InfixExpression{
+		Left: left,
+	}
+
+	// Move to the operator
+	p.nextToken()
+	infix.Operator = p.curToken.Literal
+
+	// Move to the right operand
+	p.nextToken()
+	infix.Right = p.parsePrimaryExpression()
+
+	return infix
 }
 
 func (p *Parser) parseCallExpression() Expression {
